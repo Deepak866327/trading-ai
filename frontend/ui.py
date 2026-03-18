@@ -12,7 +12,7 @@ if st.button("Analyze"):
     if stock == "":
         st.warning("Please enter a stock name")
     else:
-        url = f"http://127.0.0.1:8000/predict?stock={stock}"
+        url = f"https://trading-ai-backend-zzd3.onrender.com/predict?stock={stock}"
 
         try:
             res = requests.get(url)
