@@ -6,3 +6,4 @@ ta
 xgboost
 joblib
 scikit-learn
+newsapi-python
