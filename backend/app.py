@@ -8,41 +8,142 @@ from sentiment import get_sentiment
 
 app = FastAPI()
 
-# Load trained model
 model = joblib.load("model.pkl")
 
+# ------------------ SYMBOL ------------------
+def normalize_symbol(user_input):
+    stock = user_input.upper().strip()
+    if stock.endswith(".NS") or stock.endswith(".BO"):
+        return stock
+    return stock + ".NS"
+
+# ------------------ FEATURES ------------------
 def get_features(stock):
-    df = yf.download(stock, period="6mo")
+    stock = normalize_symbol(stock)
+
+    df = yf.download(stock, period="1y", interval="1d")
+
+    if df.empty:
+        raise Exception("Invalid stock")
 
     close = df['Close'].squeeze()
 
     df['rsi'] = ta.momentum.RSIIndicator(close).rsi()
     df['ema'] = ta.trend.EMAIndicator(close, window=20).ema_indicator()
+    df['ma50'] = close.rolling(50).mean()
+    df['ma200'] = close.rolling(200).mean()
 
+    df = df[['rsi','ema','ma50','ma200']]
     df.dropna(inplace=True)
 
-    return df[['rsi','ema']].iloc[-1:]
+    return df.tail(1)
 
-@app.get("/")
-def home():
-    return {"message": "AI Trading API Running 🚀"}
+# ------------------ EXPLANATION ------------------
+def generate_explanation(rsi, sentiment, prediction):
+    if prediction == 1:
+        if rsi > 50 and sentiment > 0:
+            return "Bullish momentum with positive sentiment."
+        elif rsi > 50:
+            return "Uptrend based on technical indicators."
+        else:
+            return "Model predicts upside despite weak signals."
+    else:
+        if rsi < 50 and sentiment < 0:
+            return "Bearish trend with negative sentiment."
+        elif rsi < 50:
+            return "Downtrend based on indicators."
+        else:
+            return "Model predicts downside risk."
 
+# ------------------ MAIN API ------------------
 @app.get("/predict")
 def predict(stock: str):
     try:
         X = get_features(stock)
 
-        # NEWS PART
         news = get_news(stock)
-        sentiment_score = get_sentiment(news)
+        sentiment = float(get_sentiment(news))
 
-        pred = model.predict(X)[0]
+        pred = int(model.predict(X)[0])
+        prob = float(model.predict_proba(X)[0][pred])
+
+        rsi = float(X['rsi'].values[0])
+
+        explanation = generate_explanation(rsi, sentiment, pred)
 
         return {
-            "stock": stock,
+            "stock": normalize_symbol(stock),
             "signal": "BUY 📈" if pred==1 else "SELL 📉",
-            "sentiment": sentiment_score
+            "confidence": round(prob*100,2),
+            "sentiment": round(sentiment,2),
+            "explanation": explanation
         }
 
     except Exception as e:
         return {"error": str(e)}
+
+# ------------------ SECTOR DATA ------------------
+SECTORS = {
+    "BANKING": ["HDFCBANK.NS","ICICIBANK.NS","SBIN.NS"],
+    "IT": ["TCS.NS","INFY.NS","WIPRO.NS"],
+    "AUTO": ["TATAMOTORS.NS","MARUTI.NS"],
+    "FMCG": ["ITC.NS","HINDUNILVR.NS"],
+    "METAL": ["TATASTEEL.NS","JSWSTEEL.NS"]
+}
+
+# ------------------ SECTOR ANALYSIS ------------------
+@app.get("/sector-analysis")
+def sector_analysis():
+    result = {}
+
+    for sector, stocks in SECTORS.items():
+        signals = []
+
+        for stock in stocks:
+            try:
+                X = get_features(stock)
+                pred = int(model.predict(X)[0])
+                signals.append(pred)
+            except:
+                continue
+
+        if signals:
+            score = sum(signals)/len(signals)
+
+            trend = "Bullish 📈" if score>0.6 else "Bearish 📉" if score<0.4 else "Neutral ⚖️"
+
+            result[sector] = {
+                "score": round(score,2),
+                "trend": trend
+            }
+
+    return result
+
+# ------------------ TOP STOCKS ------------------
+@app.get("/top-stocks")
+def top_stocks():
+    stocks = [
+        "RELIANCE.NS","TCS.NS","INFY.NS",
+        "HDFCBANK.NS","SBIN.NS","ITC.NS","TATASTEEL.NS"
+    ]
+
+    results = []
+
+    for stock in stocks:
+        try:
+            X = get_features(stock)
+            pred = int(model.predict(X)[0])
+            prob = float(model.predict_proba(X)[0][pred])
+
+            if pred == 1:
+                results.append({
+                    "stock": stock,
+                    "confidence": round(prob*100,2)
+                })
+
+        except:
+            continue
+
+    results = sorted(results, key=lambda x: x["confidence"], reverse=True)
+
+    return results[:5]
