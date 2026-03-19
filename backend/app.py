@@ -3,6 +3,8 @@ import joblib
 import yfinance as yf
 import pandas as pd
 import ta
+from news import get_news
+from sentiment import get_sentiment
 
 app = FastAPI()
 
@@ -29,11 +31,17 @@ def home():
 def predict(stock: str):
     try:
         X = get_features(stock)
+
+        # NEWS PART
+        news = get_news(stock)
+        sentiment_score = get_sentiment(news)
+
         pred = model.predict(X)[0]
 
         return {
             "stock": stock,
-            "signal": "BUY 📈" if pred==1 else "SELL 📉"
+            "signal": "BUY 📈" if pred==1 else "SELL 📉",
+            "sentiment": sentiment_score
         }
 
     except Exception as e:
