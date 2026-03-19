@@ -32,7 +32,7 @@ with col1:
 # ---------------- AI PANEL ----------------
 with col2:
     if analyze:
-        res = requests.get(f"http://127.0.0.1:8000/predict?stock={stock}")
+        res = requests.get(f"https://trading-ai-backend-zzd3.onrender.com/predict?stock={stock}")
         data = res.json()
 
         if "signal" in data:
@@ -47,7 +47,7 @@ with col2:
 st.subheader("🏭 Sector Analysis")
 
 try:
-    res = requests.get("http://127.0.0.1:8000/sector-analysis")
+    res = requests.get("https://trading-ai-backend-zzd3.onrender.com/sector-analysis")
     data = res.json()
 
     for sector, info in data.items():
@@ -59,7 +59,7 @@ except:
 st.subheader("🔥 Top AI Picks")
 
 try:
-    res = requests.get("http://127.0.0.1:8000/top-stocks")
+    res = requests.get("https://trading-ai-backend-zzd3.onrender.com/top-stocks")
     data = res.json()
 
     for stock in data:
