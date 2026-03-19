@@ -20,6 +20,7 @@ if st.button("Analyze"):
 
             if "signal" in data:
                 st.success(f"Signal: {data['signal']}")
+                st.write("Sentiment Score:", data['sentiment'])
             else:
                 st.error(data)
 
