@@ -1,16 +1,14 @@
-from transformers import pipeline
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-sentiment_model = pipeline("sentiment-analysis")
+analyzer = SentimentIntensityAnalyzer()
 
 def get_sentiment(news_list):
+    if not news_list:
+        return 0
+
     scores = []
-
     for news in news_list:
-        result = sentiment_model(news[:512])[0]
-        
-        if result['label'] == 'POSITIVE':
-            scores.append(1)
-        else:
-            scores.append(-1)
+        score = analyzer.polarity_scores(news)['compound']
+        scores.append(score)
 
-    return sum(scores)/len(scores) if scores else 0
+    return sum(scores)/len(scores)
