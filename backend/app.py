@@ -23,9 +23,6 @@ def get_features(stock):
 
     df = yf.download(stock, period="1y", interval="1d")
 
-    if df.empty:
-        raise Exception("Invalid stock")
-
     close = df['Close'].squeeze()
 
     df['rsi'] = ta.momentum.RSIIndicator(close).rsi()
@@ -33,11 +30,25 @@ def get_features(stock):
     df['ma50'] = close.rolling(50).mean()
     df['ma200'] = close.rolling(200).mean()
 
-    df = df[['rsi','ema','ma50','ma200']]
     df.dropna(inplace=True)
 
-    return df.tail(1)
+    # FUNDAMENTAL
+    ticker = yf.Ticker(stock)
+    info = ticker.info
 
+    pe = info.get("trailingPE", 0)
+    roe = info.get("returnOnEquity", 0)
+    debt = info.get("debtToEquity", 0)
+    profit_margin = info.get("profitMargins", 0)
+
+    latest = df[['rsi','ema','ma50','ma200']].iloc[-1:]
+
+    latest['pe'] = pe
+    latest['roe'] = roe
+    latest['debt'] = debt
+    latest['profit_margin'] = profit_margin
+
+    return latest
 # ------------------ EXPLANATION ------------------
 def generate_explanation(rsi, sentiment, prediction):
     if prediction == 1:
